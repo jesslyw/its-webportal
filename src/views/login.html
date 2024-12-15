@@ -4,23 +4,25 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Alpaka</title>
-    <link rel="icon" href="favicon.ico" type="image/x-icon" />
+    <link rel="icon" href="../../public/welcome.ico" type="image/x-icon" />
   </head>
 
   <body>
     <div class="login-container">
-      <h3>User Registration</h3>
+      <h3>User Login</h3>
 
       <!-- post data to /register endpoint when submit button is clicked -->
-      <form action="/register" method="POST">
+      <form action="/login" method="POST">
         <label for="username">Username:</label><br />
-        <input type="text" id="username" name="fname" /><br />
+        <input type="text" id="username" /><br />
         <label for="password">Password:</label><br />
-        <input type="password" id="password" name="lname" />
+        <input type="password" id="password" />
 
         <br /><br />
-        <button type="submit">Register</button>
+        <button type="submit">Log in</button>
       </form>
+      <br />
+      <span>Back to <a href="register.html">register.</a></span>
     </div>
   </body>
 </html>

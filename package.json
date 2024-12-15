@@ -7,16 +7,23 @@
     "format": "prettier --write .",
     "start": "npx nodemon backend/server.js"
   },
+  "compilerOptions": {
+    "types": [
+      "node"
+    ]
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "express": "^4.21.1",
     "express-session": "^1.18.1",
     "fast-csv": "^5.0.2"
   },
   "devDependencies": {
+    "@types/node": "^22.10.2",
     "nodemon": "^3.1.7",
     "prettier": "^3.4.2"
   }
