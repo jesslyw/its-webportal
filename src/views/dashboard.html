@@ -4,18 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Alpaka</title>
-    <link rel="icon" href="../../public/welcome.ico" type="image/x-icon" />
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   </head>
 
   <body>
     <div class="login-container">
-      <h3>Welcome back</h3>
+      <h3>Welcome back user</h3>
         <div>
-            <img src="../../public/welcome.png" alt="cat" width="200" height="200">
+            <img src="/welcome.png" alt="cat" width="200" height="200">
         </div>
-     
-        <button type="button">Log out</button><br>
-        <button type="button">Change password</button>
+        <span>What would you like to do?</span><br><br>
+        <span><button type="button" onclick="window.location.href='/logout';">Log out</button>
+        <button type="button" onclick="window.location.href='/change-password';">Change my password</button></span>
       </form>
     </div>
   </body>

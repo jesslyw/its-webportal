@@ -4,21 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Alpaka</title>
-    <link rel="icon" href="../../public/welcome.ico" type="image/x-icon" />
+    <link rel="icon" href="../../public/favicon.ico" type="image/x-icon" />
   </head>
 
   <body>
     <div class="registration-container">
-      <h3>User Registration</h3>
-
+      <h3>Welcome! If it's your first time here, please register</h3>
       <!-- post data to /register endpoint when submit button is clicked -->
       <form action="/register" method="POST">
         <label for="username">Username:</label><br />
-        <input type="text" id="username" /><br />
+        <input type="text" name="username" /><br />
         <label for="email">E-Mail:</label><br />
-        <input type="email" id="email" /><br />
+        <input type="email" name="email" /><br />
         <label for="password">Password:</label><br />
-        <input type="password" id="password" />
+        <input type="password" name="password" />
 
         <br /><br />
         <button type="submit">Register</button>

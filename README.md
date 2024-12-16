@@ -1,15 +1,15 @@
-all scripts are in package.json - scripts  
+all scripts are in package.json - scripts
 
 to run a script, use `npm run <script name>`
 
-## to start the development server  
+## to start the development server
 
-in project root: 
+in project root:
 
 install all dependencies `npm install`
 
-to start the server `npm run start`
+to start the server `npm run dev`
 
-## extras 
+## extras
 
 to format all files `npm run format`
