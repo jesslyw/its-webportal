@@ -84,7 +84,9 @@ const saveEmailVerificationTokenToDatabase = (
   }
 };
 
-const getEmailVerificationTokenFromDatabase = (username: string) => {
+const getEmailVerificationTokenFromDatabase = (
+  username: string
+): { token: string | null; tokenExpiration: string | null } => {
   try {
     const data = fs.readFileSync(usersFilePath, "utf8");
     const lines = data.split("\n");
@@ -103,8 +105,6 @@ const getEmailVerificationTokenFromDatabase = (username: string) => {
         return { token, tokenExpiration };
       }
     }
-
-    // if not found, return null
     return { token: null, tokenExpiration: null };
   } catch (error) {
     console.error("Error reading email verification token: " + error);
@@ -141,7 +141,39 @@ const updateUserEmailVerificationStatus = (
   }
 };
 
+const changeUserPassword = (
+  username: string,
+  newPasswordHash: string
+): boolean => {
+  try {
+    const data = fs.readFileSync(usersFilePath, "utf8");
+    const lines = data.split("\n");
+
+    const updatedLines = lines.map((line) => {
+      const [
+        storedUsername,
+        email,
+        password,
+        isValidated,
+        token,
+        tokenExpiration,
+      ] = line.split(",");
+      if (storedUsername === username) {
+        return `${storedUsername},${email},${newPasswordHash},${isValidated},${token},${tokenExpiration}`;
+      }
+      return line;
+    });
+
+    fs.writeFileSync(usersFilePath, updatedLines.join("\n"), "utf8");
+  } catch (error) {
+    console.error("Error changing user password: " + error);
+    return false;
+  }
+  return true;
+};
+
 export {
+  changeUserPassword,
   userFoundInDatabase,
   saveUserInDatabase,
   getUserFromDatabase,

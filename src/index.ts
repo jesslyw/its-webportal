@@ -2,7 +2,14 @@ import express from "express";
 import path from "path";
 import dotenv from "dotenv";
 import session from "express-session";
-import userController from "./controllers/UserController"; // Import userController
+import userController from "./controllers/userController";
+import emailController from "./controllers/emailController";
+
+declare module "express-session" {
+  export interface SessionData {
+    user: { [key: string]: any };
+  }
+}
 
 dotenv.config(); // Load environment variables
 
@@ -33,6 +40,7 @@ app.use(
 );
 
 app.use(userController);
+app.use(emailController);
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "views", "register.html"));
@@ -41,6 +49,3 @@ app.get("/", (req, res) => {
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
-// function CipherKey(SESSION_SECRET: string | undefined) {
-//   throw new Error("Function not implemented.");
-// }

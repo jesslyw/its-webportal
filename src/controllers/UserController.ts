@@ -5,6 +5,7 @@ import {
   generateEmailVerificationToken,
 } from "../utils/cryptoUtils";
 import {
+  changeUserPassword,
   userFoundInDatabase,
   saveUserInDatabase,
   getUserFromDatabase,
@@ -14,6 +15,9 @@ import {
 } from "../models/userModel";
 import { User } from "../types/User";
 import path from "path";
+import isAuthenticated from "../utils/authMiddleware";
+import bcrypt from "bcrypt";
+import { type } from "os";
 
 const router = express.Router();
 
@@ -44,85 +48,8 @@ router.post("/register", (req, res) => {
   });
 });
 
-router.get("/resend-verification", (req, res) => {
-  const { username } = req.query;
-
-  const userRecord = getUserFromDatabase(username as string);
-  if (userRecord) {
-    const token = generateEmailVerificationToken();
-    const expirationTime: number = Date.now() + 60 * 60 * 1000; // 1 hour
-
-    saveEmailVerificationTokenToDatabase(
-      userRecord.username,
-      token,
-      expirationTime
-    );
-
-    res.send(`
-      <h1>Verification Email Resent</h1>
-      <p>Please check your <a href="/email?username=${username}">email</a> to verify your account.</p>
-    `);
-  } else {
-    res.status(404).send(`
-      <h1>User Not Found</h1>
-      <p>No user found with the username: ${username}</p>
-    `);
-  }
-});
-
-router.get("/email", (req, res) => {
-  const { username } = req.query;
-
-  if (!username) {
-    return res.status(400).send("Username is required.");
-  }
-
-  const { token, tokenExpiration } = getEmailVerificationTokenFromDatabase(
-    username as string
-  );
-  const verificationLink = `http://localhost:3000/verify-email?user=${username}&token=${token}`;
-
-  res.send(`
-    <h1>Email Verification Link</h1>
-    <p>Click the link below to verify your email:</p>
-    <p><a href="${verificationLink}">${verificationLink}</a></p>
-  `);
-});
-
-router.get("/verify-email", (req, res) => {
-  const { user, token } = req.query;
-
-  if (!user || !token) {
-    return res.status(400).send(`
-      <h1>Missing Parameters</h1>
-      <p>Both user and token parameters are required.</p>
-    `);
-  }
-
-  const userRecord = getUserFromDatabase(user as string);
-
-  if (userRecord) {
-    const { token: savedToken, tokenExpiration } =
-      getEmailVerificationTokenFromDatabase(userRecord.username);
-
-    if (token === savedToken && Date.now() < Number(tokenExpiration)) {
-      updateUserEmailVerificationStatus(userRecord.username, true);
-      res.send(`
-        <h1>Email Verified!</h1>
-        <p>Your email has been successfully verified. You can now <a href="/login">log in.</a></p>
-      `);
-    } else {
-      res.status(400).send(`
-        <h1>Invalid or Expired Token</h1>
-        <p>The verification link is either invalid or has expired. <a href="/resend-verification?username=${userRecord.username}">Click here to request a new link.</a></p>
-      `);
-    }
-  } else {
-    res.status(400).send(`
-      <h1>User Not Found</h1>
-      <p>We couldn't find a user with that ID.</p>
-    `);
-  }
+router.get("/session", (req, res) => {
+  return res.send("hello " + req.session.user);
 });
 
 router.get("/login", (req, res) => {
@@ -153,25 +80,98 @@ router.post("/login", (req, res) => {
         <p>Your email is not verified yet. Please check your  <a href="/email?username=${username}">inbox</a> for the verification link.</p>
       `);
       }
-      // TODO: start user session
+      req.session.user = {
+        username: userRecord.username,
+        email: userRecord.email,
+      };
       res.redirect("/dashboard");
     });
   }
 });
 
-router.get("/dashboard", (req, res) => {
+router.get("/dashboard", isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, "../views", "dashboard.html"));
 });
 
-router.get("/logout", (req, res) => {
+router.get("/logout", isAuthenticated, (req, res) => {
+  console.log("logging out");
+  res.clearCookie("token");
   req.session.destroy((err) => {
     if (err) {
       return res.status(500).send("Error during logout");
     }
-    // TODO: end session
 
     res.redirect("/");
   });
+});
+
+router.get("/change-password", isAuthenticated, (req, res) => {
+  const user = req.session.user?.username;
+
+  if (user === undefined) {
+    res.send(`<h1>User session not found. Back to <a href="/">home</a></h1>`);
+  }
+
+  res.sendFile(path.join(__dirname, "../views", "change-password.html"));
+});
+
+router.post("/change-password", isAuthenticated, (req, res) => {
+  const {
+    "old-password": oldPassword,
+    "new-password": newPassword,
+    "confirm-password": confirmPassword,
+  } = req.body;
+
+  const user = req.session.user?.username;
+  console.log("got user from session:", user);
+
+  // Fetch the user record from the database
+  const userRecord = getUserFromDatabase(user);
+  console.log("user record:", userRecord);
+
+  // Check if passwords match
+  if (newPassword !== confirmPassword) {
+    return res.status(400).send("Passwords do not match");
+  }
+
+  // Check if the user exists
+  if (!userFoundInDatabase(user)) {
+    return res.status(400).send("User not found");
+  }
+
+  // Check if the old password matches the current one
+  comparePassword(
+    oldPassword,
+    userRecord?.password as string,
+    (err, isMatch) => {
+      if (err) {
+        console.log(err);
+        return res.status(500).send("Error comparing password");
+      }
+
+      if (!isMatch) {
+        return res.status(400).send("Incorrect password");
+      }
+
+      // Hash the new password
+      hashPassword(newPassword, (err, hashedPassword) => {
+        if (err) {
+          console.log(err);
+          return res.status(500).send("Error hashing password");
+        }
+
+        // Update the password in the database
+        if (changeUserPassword(user, hashedPassword)) {
+          return res.send(`
+          <h1>Password changed successfully</h1>
+          <p>Back to <a href="/dashboard">dashboard</a></p>
+        `);
+        } else {
+          return res.status(500).send("Error updating password in database");
+        }
+      });
+    }
+  );
 });
 
 export default router;
