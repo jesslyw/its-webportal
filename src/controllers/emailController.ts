@@ -1,15 +1,13 @@
 import express from "express";
 const router = express.Router();
 import {
-  userFoundInDatabase,
-  saveUserInDatabase,
   getUserFromDatabase,
   saveEmailVerificationTokenToDatabase,
   getEmailVerificationTokenFromDatabase,
   updateUserEmailVerificationStatus,
 } from "../models/userModel";
 import { generateEmailVerificationToken } from "../utils/cryptoUtils";
-import isAuthenticated from "../utils/authMiddleware";
+import { BASE_URL, TOKEN_EXPIRATION_IN_MIN } from "../config.ts";
 
 router.get("/resend-verification", (req, res) => {
   const { username } = req.query;
@@ -17,7 +15,9 @@ router.get("/resend-verification", (req, res) => {
   const userRecord = getUserFromDatabase(username as string);
   if (userRecord) {
     const token = generateEmailVerificationToken();
-    const expirationTime: number = Date.now() + 60 * 60 * 1000; // 1 hour
+
+    const expirationTime: number =
+      Date.now() + TOKEN_EXPIRATION_IN_MIN * 60 * 1000; // 1 hour
 
     saveEmailVerificationTokenToDatabase(
       userRecord.username,
@@ -47,7 +47,7 @@ router.get("/email", (req, res) => {
   const { token, tokenExpiration } = getEmailVerificationTokenFromDatabase(
     username as string
   );
-  const verificationLink = `http://localhost:3000/verify-email?user=${username}&token=${token}`;
+  const verificationLink = `http://${BASE_URL}:3000/verify-email?user=${username}&token=${token}`;
 
   res.send(`
       <h1>Email Verification Link</h1>

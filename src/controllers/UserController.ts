@@ -3,6 +3,7 @@ import {
   hashPassword,
   comparePassword,
   generateEmailVerificationToken,
+  hashPassword_promise,
 } from "../utils/cryptoUtils";
 import {
   changeUserPassword,
@@ -10,14 +11,11 @@ import {
   saveUserInDatabase,
   getUserFromDatabase,
   saveEmailVerificationTokenToDatabase,
-  getEmailVerificationTokenFromDatabase,
-  updateUserEmailVerificationStatus,
 } from "../models/userModel";
 import { User } from "../types/User";
 import path from "path";
 import isAuthenticated from "../utils/authMiddleware";
-import bcrypt from "bcrypt";
-import { type } from "os";
+import { TOKEN_EXPIRATION_IN_MIN } from "../config.ts";
 
 const router = express.Router();
 
@@ -25,7 +23,9 @@ router.post("/register", (req, res) => {
   const { username, email, password } = req.body;
 
   if (userFoundInDatabase(username)) {
-    return res.status(400).send("Username already exists");
+    return res
+      .status(400)
+      .send(`<p>Username already exists. Back to <a href="/">home</a>.</p>`);
   }
 
   hashPassword(password, (err, hashedPassword) => {
@@ -37,7 +37,8 @@ router.post("/register", (req, res) => {
     saveUserInDatabase(newUser);
 
     const token = generateEmailVerificationToken();
-    const expirationTime: number = Date.now() + 60 * 60 * 1000; // 1 hour
+    const expirationTime: number =
+      Date.now() + TOKEN_EXPIRATION_IN_MIN * 60 * 1000; // 1 hour
 
     saveEmailVerificationTokenToDatabase(username, token, expirationTime);
 
@@ -49,6 +50,7 @@ router.post("/register", (req, res) => {
 });
 
 router.get("/session", (req, res) => {
+  console.log(req.sessionID);
   return res.send("hello " + req.session.user);
 });
 
@@ -94,7 +96,6 @@ router.get("/dashboard", isAuthenticated, (req, res) => {
 });
 
 router.get("/logout", isAuthenticated, (req, res) => {
-  console.log("logging out");
   res.clearCookie("token");
   req.session.destroy((err) => {
     if (err) {
@@ -105,7 +106,7 @@ router.get("/logout", isAuthenticated, (req, res) => {
   });
 });
 
-router.get("/change-password", isAuthenticated, (req, res) => {
+router.get("/change-password", isAuthenticated, async (req, res) => {
   const user = req.session.user?.username;
 
   if (user === undefined) {
@@ -115,61 +116,44 @@ router.get("/change-password", isAuthenticated, (req, res) => {
   res.sendFile(path.join(__dirname, "../views", "change-password.html"));
 });
 
-router.post("/change-password", isAuthenticated, (req, res) => {
+router.post("/change-password", isAuthenticated, async (req, res) => {
   const {
     "old-password": oldPassword,
     "new-password": newPassword,
     "confirm-password": confirmPassword,
   } = req.body;
 
-  const user = req.session.user?.username;
-  console.log("got user from session:", user);
+  const username = req.session.user?.username;
 
   // Fetch the user record from the database
-  const userRecord = getUserFromDatabase(user);
-  console.log("user record:", userRecord);
+  const userRecord = getUserFromDatabase(username);
+  const userRecordPassword = userRecord?.password;
 
-  // Check if passwords match
+  // Check if new passwords match
   if (newPassword !== confirmPassword) {
     return res.status(400).send("Passwords do not match");
   }
 
-  // Check if the user exists
-  if (!userFoundInDatabase(user)) {
-    return res.status(400).send("User not found");
-  }
-
-  // Check if the old password matches the current one
+  // check if old password entered matches hashed password
   comparePassword(
     oldPassword,
-    userRecord?.password as string,
-    (err, isMatch) => {
-      if (err) {
-        console.log(err);
-        return res.status(500).send("Error comparing password");
-      }
+    userRecordPassword as string,
+    async (err, isMatch) => {
+      if (isMatch) {
+        const hashedPassword = await hashPassword_promise(confirmPassword);
 
-      if (!isMatch) {
-        return res.status(400).send("Incorrect password");
-      }
-
-      // Hash the new password
-      hashPassword(newPassword, (err, hashedPassword) => {
-        if (err) {
-          console.log(err);
-          return res.status(500).send("Error hashing password");
+        const result = await changeUserPassword(username, hashedPassword);
+        if (result) {
+          res.send(`
+      <h1>Password changed successfully</h1>
+      <p>Back to <a href="/dashboard">dashboard</a></p>
+    `);
         }
-
-        // Update the password in the database
-        if (changeUserPassword(user, hashedPassword)) {
-          return res.send(`
-          <h1>Password changed successfully</h1>
-          <p>Back to <a href="/dashboard">dashboard</a></p>
+      } else {
+        res.status(400).send(`
+          Your password is incorrect
         `);
-        } else {
-          return res.status(500).send("Error updating password in database");
-        }
-      });
+      }
     }
   );
 });
